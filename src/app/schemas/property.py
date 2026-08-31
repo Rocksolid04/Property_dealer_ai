@@ -1,0 +1,26 @@
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+
+
+class PropertyBase(BaseModel):
+    title: str
+    description: str | None = None
+    property_type: str
+    listing_type: str
+    location: str
+    price: float
+    bedrooms: int | None = None
+    bathrooms: int | None = None
+    area_sqft: float | None = None
+
+
+class PropertyCreate(PropertyBase):
+    pass
+
+
+class PropertyResponse(PropertyBase):
+    id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
