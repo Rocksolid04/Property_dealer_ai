@@ -5,6 +5,10 @@ from app.database.dependencies import get_db
 from app.schemas.property import PropertyCreate, PropertyResponse, PropertySearchResponse
 from app.services.property import PropertyService
 
+from app.core.security import get_current_user, require_role
+from app.models.user import User
+
+
 
 router = APIRouter(
     prefix="/properties",
@@ -20,6 +24,9 @@ router = APIRouter(
 def create_property(
     property_data: PropertyCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role("dealer", "admin")
+    ),
 ):
     service = PropertyService(db)
 
