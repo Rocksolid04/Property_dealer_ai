@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_db
-from app.schemas.property import PropertyCreate, PropertyResponse
+from app.schemas.property import PropertyCreate, PropertyResponse, PropertySearchResponse
 from app.services.property import PropertyService
 
 
@@ -27,7 +27,7 @@ def create_property(
 
 @router.get(
     "/search",
-    response_model=list[PropertyResponse],
+    response_model=PropertySearchResponse,
 )
 def search_properties(
     location: str | None = None,
@@ -36,6 +36,10 @@ def search_properties(
     min_price: float | None = None,
     max_price: float | None = None,
     bedrooms: int | None = None,
+    page: int = 1,
+    limit: int = 10,
+    sort_by: str = "created_at",
+    order: str = "desc",
     db: Session = Depends(get_db),
 ):
     service = PropertyService(db)
@@ -47,6 +51,10 @@ def search_properties(
         min_price=min_price,
         max_price=max_price,
         bedrooms=bedrooms,
+        page=page,
+        limit=limit,
+        sort_by=sort_by,
+        order=order,
     )
 
 

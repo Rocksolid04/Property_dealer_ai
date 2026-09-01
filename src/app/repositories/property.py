@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from math import ceil
+
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.properties import Property
@@ -22,14 +24,18 @@ class PropertyRepository:
         return property_obj
 
     def get_by_id(self, property_id: int) -> Property | None:
-        statement = select(Property).where(Property.id == property_id)
+        statement = select(Property).where(
+            Property.id == property_id
+        )
 
         return self.db.scalar(statement)
 
     def get_all(self) -> list[Property]:
         statement = select(Property)
 
-        return list(self.db.scalars(statement).all())
+        return list(
+            self.db.scalars(statement).all()
+        )
 
     def delete(self, property_obj: Property) -> None:
         self.db.delete(property_obj)
@@ -43,10 +49,14 @@ class PropertyRepository:
         min_price: float | None = None,
         max_price: float | None = None,
         bedrooms: int | None = None,
-    ) -> list[Property]:
-
+        page: int = 1,
+        limit: int = 10,
+        sort_by: str = "created_at",
+        order: str = "desc",
+    ):
         statement = select(Property)
 
+        # Filters
         if location:
             statement = statement.where(
                 Property.location.ilike(f"%{location}%")
@@ -77,4 +87,40 @@ class PropertyRepository:
                 Property.bedrooms == bedrooms
             )
 
-        return list(self.db.scalars(statement).all())
+        # Count total matching properties
+        count_statement = select(
+            func.count()
+        ).select_from(statement.subquery())
+
+        total = self.db.scalar(count_statement) or 0
+
+        # Sorting
+        sort_column = getattr(
+            Property,
+            sort_by,
+            Property.created_at,
+        )
+
+        if order.lower() == "asc":
+            statement = statement.order_by(sort_column.asc())
+        else:
+            statement = statement.order_by(sort_column.desc())
+
+        # Pagination
+        offset = (page - 1) * limit
+
+        statement = statement.offset(offset).limit(limit)
+
+        properties = list(
+            self.db.scalars(statement).all()
+        )
+
+        total_pages = ceil(total / limit) if limit else 0
+
+        return {
+            "items": properties,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+        }

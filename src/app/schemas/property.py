@@ -24,3 +24,11 @@ class PropertyResponse(PropertyBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PropertySearchResponse(BaseModel):
+    items: list[PropertyResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int

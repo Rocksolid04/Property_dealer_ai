@@ -36,6 +36,10 @@ class PropertyService:
         min_price: float | None = None,
         max_price: float | None = None,
         bedrooms: int | None = None,
+        page: int = 1,
+        limit: int = 10,
+        sort_by: str = "created_at",
+        order: str = "desc",
     ):
         return self.repository.search(
             location=location,
@@ -44,4 +48,8 @@ class PropertyService:
             min_price=min_price,
             max_price=max_price,
             bedrooms=bedrooms,
+            page=page,
+            limit=limit,
+            sort_by=sort_by,
+            order=order,
         )
