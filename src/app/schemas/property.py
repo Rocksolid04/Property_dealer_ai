@@ -33,3 +33,13 @@ class PropertySearchResponse(BaseModel):
     page: int
     limit: int
     total_pages: int
+
+class PropertyImageResponse(BaseModel):
+    id: int
+    property_id: int
+    image_url: str
+    storage_path: str
+    display_order: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

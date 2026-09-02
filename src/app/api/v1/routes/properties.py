@@ -1,12 +1,33 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from uuid import uuid4
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
+from app.core.security import require_role
 from app.database.dependencies import get_db
-from app.schemas.property import PropertyCreate, PropertyResponse, PropertySearchResponse
-from app.services.property import PropertyService
-
-from app.core.security import get_current_user, require_role
 from app.models.user import User
+from app.repositories.property_image import create_property_image
+from app.schemas.property import (
+    PropertyCreate,
+    PropertyImageResponse,
+    PropertyResponse,
+    PropertySearchResponse,
+)
+from app.services.property import PropertyService
+from app.services.storage import upload_property_image
+from app.services.property_image import get_images_for_property
+from app.services.property_image import (
+    delete_image,
+    get_images_for_property,
+)
 
 
 
@@ -77,6 +98,65 @@ def get_properties(
     return service.get_properties()
 
 
+@router.post(
+    "/{property_id}/images",
+    response_model=PropertyImageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def upload_property_image_endpoint(
+    property_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role("dealer", "admin")
+    ),
+):
+    service = PropertyService(db)
+
+    property_obj = service.get_property(property_id)
+
+    if property_obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found",
+        )
+
+    file_content = file.file.read()
+
+    unique_filename = f"{uuid4()}_{file.filename}"
+
+    storage_path = f"{property_id}/{unique_filename}"
+
+    result = upload_property_image(
+        file_content=file_content,
+        file_path=storage_path,
+        content_type=file.content_type or "application/octet-stream",
+    )
+
+    image = create_property_image(
+        db=db,
+        property_id=property_id,
+        image_url=result["public_url"],
+        storage_path=result["storage_path"],
+    )
+
+    return image
+
+@router.get(
+    "/{property_id}/images",
+    response_model=list[PropertyImageResponse],
+)
+def get_property_images_endpoint(
+    property_id: int,
+    db: Session = Depends(get_db),
+):
+    images = get_images_for_property(
+        db=db,
+        property_id=property_id,
+    )
+
+    return images
+
 @router.get(
     "/{property_id}",
     response_model=PropertyResponse,
@@ -117,3 +197,30 @@ def delete_property(
         )
 
     return None
+
+@router.delete(
+    "/{property_id}/images/{image_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_property_image_endpoint(
+    property_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role("dealer", "admin")
+    ),
+):
+    success = delete_image(
+        db=db,
+        property_id=property_id,
+        image_id=image_id,
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property image not found",
+        )
+
+    return None
+

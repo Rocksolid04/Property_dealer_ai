@@ -7,50 +7,34 @@ from alembic import context
 
 import sys
 from pathlib import Path
-import os
+
+from app.models.property_image import PropertyImage
 
 from dotenv import load_dotenv
 
-
-# Add src to Python path
 sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 
-# Now import Base
 from app.database.base import Base
 from app.models.properties import Property
 
+from app.core.config import settings
 
-# Load .env file
-load_dotenv()
+DATABASE_URL = settings.DATABASE_URL
 
-# this is the Alembic Config object
 config = context.config
 
-# Get DATABASE_URL from .env
-DATABASE_URL = os.getenv("DATABASE_URL")
-
-if not DATABASE_URL:
-    raise ValueError("DATABASE_URL is not set in .env")
-
-# Override sqlalchemy.url from alembic.ini
 config.set_main_option(
     "sqlalchemy.url",
     DATABASE_URL.replace("%", "%%")
 )
 
-
-# Interpret the config file for Python logging.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-
-# Add your model's MetaData object here
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode."""
-
     url = config.get_main_option("sqlalchemy.url")
 
     context.configure(
@@ -65,8 +49,6 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
-
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
