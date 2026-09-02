@@ -9,8 +9,8 @@ class PropertyService:
     def __init__(self, db: Session):
         self.repository = PropertyRepository(db)
 
-    def create_property(self, property_data: PropertyCreate):
-        return self.repository.create(property_data)
+    def create_property(self,property_data: PropertyCreate,owner_id: int):
+        return self.repository.create(property_data,owner_id)
 
     def get_property(self, property_id: int):
         return self.repository.get_by_id(property_id)

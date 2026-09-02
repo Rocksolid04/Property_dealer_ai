@@ -30,7 +30,7 @@ def create_property(
 ):
     service = PropertyService(db)
 
-    return service.create_property(property_data)
+    return service.create_property(property_data,current_user.id)
 
 @router.get(
     "/search",

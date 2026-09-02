@@ -12,10 +12,8 @@ class PropertyRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, property_data: PropertyCreate) -> Property:
-        property_obj = Property(
-            **property_data.model_dump()
-        )
+    def create(self,property_data: PropertyCreate,owner_id: int,) -> Property:
+        property_obj = Property(**property_data.model_dump(),owner_id=owner_id)
 
         self.db.add(property_obj)
         self.db.commit()

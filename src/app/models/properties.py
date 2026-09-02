@@ -55,7 +55,7 @@ class Property(Base):
 
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
