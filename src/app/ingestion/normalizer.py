@@ -25,19 +25,36 @@ def normalize_property(raw_property: dict) -> dict:
     if not location:
         raise ValueError("Property location is missing")
 
+    
+
     if price is None:
-        raise ValueError("Property price is missing")
+        price_min = raw_property.get("priceMinInr")
+        price_max = raw_property.get("priceMaxInr")
+
+        if price_min is not None and price_max is not None:
+           price = (float(price_min) + float(price_max)) / 2
+        elif price_min is not None:
+           price = price_min
+        elif price_max is not None:
+           price = price_max     
 
     if area_sqft is None:
         raise ValueError("Property area is missing")
 
     # Normalize numeric values
     try:
-        price = float(price)
-        area_sqft = float(area_sqft)
+       price = float(price)
+       area_sqft = float(area_sqft)
     except (TypeError, ValueError) as exc:
-        raise ValueError("Price or area contains an invalid numeric value") from exc
+       raise ValueError("Price or area contains an invalid numeric value") from exc
 
+    if price <= 0:
+       raise ValueError("Property price must be greater than 0")
+
+    if area_sqft <= 0:
+        raise ValueError("Property area must be greater than 0")
+
+    
     bedrooms = raw_property.get("bedrooms")
     bathrooms = raw_property.get("bathrooms")
 

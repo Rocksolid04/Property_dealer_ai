@@ -10,7 +10,7 @@ def main():
             db=db,
             city="Mumbai",
             transaction_type="buy",
-            max_results=5,
+            max_results=20,
         )
 
         print(f"Successfully ingested {inserted} properties")
