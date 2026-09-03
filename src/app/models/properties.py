@@ -11,6 +11,13 @@ class Property(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
 
+    external_id: Mapped[str | None] = mapped_column(
+        String(100),
+        unique=True,
+        index=True,
+        nullable=True,
+    )
+
     title: Mapped[str] = mapped_column(String(200), nullable=False)
 
     description: Mapped[str | None] = mapped_column(

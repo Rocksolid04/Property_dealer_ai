@@ -20,7 +20,7 @@ class PropertyCreate(PropertyBase):
 
 
 class PropertyResponse(PropertyBase):
-    id: int
+    id: int | None
     created_at: datetime
     owner_id: int
 
