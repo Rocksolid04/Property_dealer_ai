@@ -1,9 +1,15 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database.base import Base
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from pgvector.sqlalchemy import Vector
+
+if TYPE_CHECKING:
+    from app.models.property_image import PropertyImage
 
 
 class Property(Base):
@@ -60,6 +66,11 @@ class Property(Base):
         nullable=True,
     )
 
+    embedding: Mapped[list[float] | None] = mapped_column(
+    Vector(384),
+    nullable=True,
+    )
+
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),
         nullable=True,
@@ -71,3 +82,9 @@ class Property(Base):
         default=datetime.utcnow,
         nullable=False,
     )
+
+    images: Mapped[list["PropertyImage"]] = relationship(
+    "PropertyImage",
+    back_populates="property",
+    cascade="all, delete-orphan",
+     )

@@ -1,3 +1,4 @@
+
 from supabase import create_client
 
 from app.core.config import settings
@@ -22,6 +23,7 @@ def upload_property_image(
         file=file_content,
         file_options={
             "content-type": content_type,
+            "upsert": "true",
         },
     )
 
@@ -33,6 +35,7 @@ def upload_property_image(
         "storage_path": file_path,
         "public_url": public_url,
     }
+
 
 def delete_property_image(
     file_path: str,

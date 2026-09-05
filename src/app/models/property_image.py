@@ -1,9 +1,13 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.base import Base
+
+if TYPE_CHECKING:
+    from app.models.properties import Property
 
 
 class PropertyImage(Base):
@@ -41,4 +45,9 @@ class PropertyImage(Base):
         DateTime,
         default=datetime.utcnow,
         nullable=False,
+    )
+
+    property: Mapped["Property"] = relationship(
+    "Property",
+    back_populates="images",
     )

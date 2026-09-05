@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PropertyBase(BaseModel):
@@ -19,10 +19,22 @@ class PropertyCreate(PropertyBase):
     pass
 
 
-class PropertyResponse(PropertyBase):
-    id: int | None
+class PropertyImageResponse(BaseModel):
+    id: int
+    property_id: int
+    image_url: str
+    storage_path: str
+    display_order: int
     created_at: datetime
-    owner_id: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PropertyResponse(PropertyBase):
+    id: int
+    created_at: datetime
+    owner_id: int | None
+    images: list[PropertyImageResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,13 +45,3 @@ class PropertySearchResponse(BaseModel):
     page: int
     limit: int
     total_pages: int
-
-class PropertyImageResponse(BaseModel):
-    id: int
-    property_id: int
-    image_url: str
-    storage_path: str
-    display_order: int
-    created_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)

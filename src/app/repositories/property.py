@@ -1,7 +1,7 @@
 from math import ceil
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.properties import Property
 from app.schemas.property import PropertyCreate
@@ -22,8 +22,10 @@ class PropertyRepository:
         return property_obj
 
     def get_by_id(self, property_id: int) -> Property | None:
-        statement = select(Property).where(
-            Property.id == property_id
+        statement = (
+        select(Property)
+        .options(selectinload(Property.images))
+        .where(Property.id == property_id)
         )
 
         return self.db.scalar(statement)
