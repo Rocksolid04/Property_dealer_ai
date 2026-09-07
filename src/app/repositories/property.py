@@ -1,6 +1,6 @@
 from math import ceil
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.properties import Property
@@ -146,6 +146,7 @@ class PropertyRepository:
 
         return self.db.execute(statement).all()
 
+
     def hybrid_search(
         self,
         query_embedding: list[float],
@@ -155,27 +156,36 @@ class PropertyRepository:
         min_price: float | None = None,
         max_price: float | None = None,
         bedrooms: int | None = None,
-        limit: int = 5,
+        page: int = 1,
+        limit: int = 10,
     ):
+    
         distance = Property.embedding.cosine_distance(
            query_embedding
         )
 
         statement = (
            select(
-              Property,
-              distance.label("distance"),
+               Property,
+               distance.label("distance"),
             )
-            .where(Property.embedding.is_not(None))
+           .where(Property.embedding.is_not(None))
         )
 
         if location:
+           normalized_location = location.strip().lower()
+
            statement = statement.where(
-              Property.location.ilike(f"%{location}%")
-            )
+              or_(
+                  func.lower(Property.location) == normalized_location,
+                  func.lower(Property.location).like(
+                    f"%, {normalized_location}"
+            ),
+        )
+    )
 
         if property_type:
-           statement = statement.where(
+            statement = statement.where(
                Property.property_type == property_type
             )
 
@@ -190,7 +200,7 @@ class PropertyRepository:
             )
 
         if max_price is not None:
-            statement = statement.where(
+           statement = statement.where(
                Property.price <= max_price
             )
 
@@ -199,10 +209,33 @@ class PropertyRepository:
                Property.bedrooms == bedrooms
             )
 
+    # Count total matching properties
+        count_statement = select(
+            func.count()
+        ).select_from(statement.subquery())
+
+        total = self.db.scalar(count_statement) or 0
+
+    # Apply vector similarity ordering
+        statement = statement.order_by(distance)
+
+    # Apply pagination
+        offset = (page - 1) * limit
+
         statement = (
-           statement
-           .order_by(distance)
-           .limit(limit)
+            statement
+            .offset(offset)
+            .limit(limit)
         )
 
-        return self.db.execute(statement).all()
+        results = self.db.execute(statement).all()
+
+        total_pages = ceil(total / limit) if limit else 0
+
+        return {
+            "items": results,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+        }

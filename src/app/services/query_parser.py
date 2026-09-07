@@ -1,6 +1,7 @@
 from groq import Groq
 
 from app.core.config import settings
+from app.schemas.search import PropertySearchQuery
 
 
 client = Groq(
@@ -8,23 +9,48 @@ client = Groq(
 )
 
 
-def parse_property_query(query: str):
-    response = client.chat.completions.create(
-        model="qwen/qwen3.8-27b",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You are a real estate search assistant. "
-                    "Understand the user's property search request "
-                    "and extract the important requirements."
-                ),
+def parse_property_query(query: str) -> PropertySearchQuery:
+    try:
+        response = client.chat.completions.create(
+            model="qwen/qwen3.8-27b",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a real estate search query parser. "
+                        "Extract structured search filters from the user's request. "
+                        "Return the result as valid JSON. "
+                        "Return only information explicitly stated or strongly implied "
+                        "by the user. "
+                        "Convert Indian currency such as crore and lakh into INR. "
+                        "For example, 2 crore means 20000000. "
+                        "For BHK, return only the bedroom number. "
+                        "For listing type, use 'rent' when the user wants to rent, "
+                        "and use 'buy' when the user wants to buy, purchase, or own a property. "
+                        "If the user does not specify whether they want to rent or buy, "
+                        "return null for listing_type. "
+                        "Put qualitative requirements such as spacious, modern, "
+                        "near metro, family-friendly, etc. into search_text."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": query,
+                },
+            ],
+            response_format={
+                "type": "json_object"
             },
-            {
-                "role": "user",
-                "content": query,
-            },
-        ],
-    )
+            max_tokens=200,
+        )
 
-    return response.choices[0].message.content
+        return PropertySearchQuery.model_validate_json(
+            response.choices[0].message.content
+        )
+
+    except Exception as exc:
+        raise ValueError(
+            "Unable to understand the property search query"
+        ) from exc
+
+   

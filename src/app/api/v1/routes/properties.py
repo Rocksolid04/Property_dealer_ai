@@ -16,6 +16,7 @@ from app.database.dependencies import get_db
 from app.models.user import User
 from app.repositories.property_image import create_property_image
 from app.schemas.property import (
+    PropertyAISearchResponse,
     PropertyCreate,
     PropertyImageResponse,
     PropertyResponse,
@@ -24,7 +25,7 @@ from app.schemas.property import (
 )
 from app.services.property import PropertyService
 from app.services.storage import upload_property_image
-from app.services.property_image import get_images_for_property
+
 from app.services.property_image import (
     delete_image,
     get_images_for_property,
@@ -129,6 +130,55 @@ def hybrid_search_properties(
         bedrooms=bedrooms,
         limit=limit,
     )
+
+@router.get(
+    "/ai-search",
+    response_model=PropertyAISearchResponse,
+)
+def ai_search_properties(
+    query: str,
+    page: int = 1,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+):
+    if not query.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Search query cannot be empty",
+        )
+
+    if len(query) > 500:
+        raise HTTPException(
+            status_code=400,
+            detail="Search query is too long. Maximum 500 characters.",
+        )
+
+    if page < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Page must be greater than or equal to 1.",
+        )
+
+    if limit < 1 or limit > 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Limit must be between 1 and 50.",
+        )
+
+    service = PropertyService(db)
+
+    try:
+        return service.ai_search(
+            query=query,
+            page=page,
+            limit=limit,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
 
 @router.get(
     "/",

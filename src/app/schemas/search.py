@@ -13,5 +13,5 @@ class PropertySearchQuery(BaseModel):
 
     search_text: str = Field(
         default="",
-        description="The semantic part of the user's property request"
+        description="Qualitative semantic requirements such as spacious, modern, near metro, family-friendly, etc."
     )

@@ -49,3 +49,12 @@ class PropertySearchResponse(BaseModel):
 class PropertySemanticSearchResponse(BaseModel):
     property: PropertyResponse
     similarity: float
+
+
+class PropertyAISearchResponse(BaseModel):
+    items: list[PropertySemanticSearchResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+

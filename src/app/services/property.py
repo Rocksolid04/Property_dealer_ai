@@ -6,8 +6,11 @@ from app.database.redis import redis_client
 from app.repositories.property import PropertyRepository
 from app.schemas.property import (
     PropertyCreate,
+    PropertyResponse,
     PropertySearchResponse,
 )
+
+from app.services.query_parser import parse_property_query
 from app.services.embedding import generate_embedding
 
 
@@ -17,14 +20,22 @@ class PropertyService:
         self.repository = PropertyRepository(db)
 
     def invalidate_property_search_cache(self):
-        keys = redis_client.keys("property_search:*")
+        property_search_keys = redis_client.keys(
+           "property_search:*"
+        )
+
+        ai_search_keys = redis_client.keys(
+           "ai_search:*"
+        )
+
+        keys = property_search_keys + ai_search_keys
 
         if keys:
             redis_client.delete(*keys)
 
-            print(
-                f"Invalidated {len(keys)} property search cache(s)"
-            )
+        print(
+            f"Invalidated {len(keys)} property search cache(s)"
+        )
 
     def create_property(
         self,
@@ -144,6 +155,7 @@ class PropertyService:
             for property_obj, distance in results
         ]
 
+
     def hybrid_search(
         self,
         query: str,
@@ -153,11 +165,12 @@ class PropertyService:
         min_price: float | None = None,
         max_price: float | None = None,
         bedrooms: int | None = None,
-        limit: int = 5,
+        page: int = 1,
+        limit: int = 10,
     ):
         query_embedding = generate_embedding(query)
 
-        results = self.repository.hybrid_search(
+        result = self.repository.hybrid_search(
             query_embedding=query_embedding,
             location=location,
             property_type=property_type,
@@ -165,13 +178,91 @@ class PropertyService:
             min_price=min_price,
             max_price=max_price,
             bedrooms=bedrooms,
+            page=page,
             limit=limit,
         )
 
-        return [
-            {
-                "property": property_obj,
-                "similarity": 1 - distance,
-            }
-            for property_obj, distance in results
+        items = [
+           {
+               "property": property_obj,
+               "similarity": 1 - distance,
+           }
+           for property_obj, distance in result["items"]
         ]
+
+        return {
+           "items": items,
+           "total": result["total"],
+           "page": result["page"],
+           "limit": result["limit"],
+           "total_pages": result["total_pages"],
+        }
+
+
+
+
+
+    def ai_search(
+       self,
+       query: str,
+       page: int = 1,
+       limit: int = 10,
+    ):
+       normalized_query = " ".join(
+           query.strip().lower().split()
+        )
+
+       cache_key = (
+           f"ai_search:{normalized_query}:"
+           f"{page}:{limit}"
+        )
+
+       cached_result = redis_client.get(cache_key)
+
+       if cached_result:
+          print("AI SEARCH CACHE HIT")
+          return json.loads(cached_result)
+
+       print("AI SEARCH CACHE MISS")
+
+       parsed_query = parse_property_query(query)
+
+       result = self.hybrid_search(
+           query=parsed_query.search_text or query,
+           location=parsed_query.location,
+           property_type=parsed_query.property_type,
+           listing_type=parsed_query.listing_type,
+           min_price=parsed_query.min_price,
+           max_price=parsed_query.max_price,
+           bedrooms=parsed_query.bedrooms,
+           page=page,
+           limit=limit,
+        )
+
+       items = [
+           {
+               "property": PropertyResponse.model_validate(
+                   item["property"]
+               ).model_dump(mode="json"),
+              "similarity": item["similarity"],
+            }
+           for item in result["items"]
+        ]
+
+       response = {
+          "items": items,
+          "total": result["total"],
+          "page": result["page"],
+          "limit": result["limit"],
+          "total_pages": result["total_pages"],
+        }
+
+       redis_client.setex(
+           cache_key,
+           300,
+           json.dumps(response),
+        )
+
+       return response
+
+
