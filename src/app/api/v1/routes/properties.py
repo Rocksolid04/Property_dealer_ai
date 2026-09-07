@@ -20,6 +20,7 @@ from app.schemas.property import (
     PropertyImageResponse,
     PropertyResponse,
     PropertySearchResponse,
+    PropertySemanticSearchResponse,
 )
 from app.services.property import PropertyService
 from app.services.storage import upload_property_image
@@ -85,6 +86,49 @@ def search_properties(
         order=order,
     )
 
+@router.get(
+    "/semantic-search",
+    response_model=list[PropertySemanticSearchResponse],
+)
+def semantic_search_properties(
+    query: str,
+    limit: int = 5,
+    db: Session = Depends(get_db),
+):
+    service = PropertyService(db)
+
+    return service.semantic_search(
+        query=query,
+        limit=limit,
+    )
+
+@router.get(
+    "/hybrid-search",
+    response_model=list[PropertySemanticSearchResponse],
+)
+def hybrid_search_properties(
+    query: str,
+    location: str | None = None,
+    property_type: str | None = None,
+    listing_type: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    bedrooms: int | None = None,
+    limit: int = 5,
+    db: Session = Depends(get_db),
+):
+    service = PropertyService(db)
+
+    return service.hybrid_search(
+        query=query,
+        location=location,
+        property_type=property_type,
+        listing_type=listing_type,
+        min_price=min_price,
+        max_price=max_price,
+        bedrooms=bedrooms,
+        limit=limit,
+    )
 
 @router.get(
     "/",

@@ -124,3 +124,85 @@ class PropertyRepository:
             "limit": limit,
             "total_pages": total_pages,
         }
+
+    def vector_search(
+        self,
+        query_embedding: list[float],
+        limit: int = 5,
+    ):
+        distance = Property.embedding.cosine_distance(
+           query_embedding
+    )
+
+        statement = (
+            select(
+               Property,
+               distance.label("distance"),
+            )
+            .where(Property.embedding.is_not(None))
+            .order_by(distance)
+            .limit(limit)
+        )
+
+        return self.db.execute(statement).all()
+
+    def hybrid_search(
+        self,
+        query_embedding: list[float],
+        location: str | None = None,
+        property_type: str | None = None,
+        listing_type: str | None = None,
+        min_price: float | None = None,
+        max_price: float | None = None,
+        bedrooms: int | None = None,
+        limit: int = 5,
+    ):
+        distance = Property.embedding.cosine_distance(
+           query_embedding
+        )
+
+        statement = (
+           select(
+              Property,
+              distance.label("distance"),
+            )
+            .where(Property.embedding.is_not(None))
+        )
+
+        if location:
+           statement = statement.where(
+              Property.location.ilike(f"%{location}%")
+            )
+
+        if property_type:
+           statement = statement.where(
+               Property.property_type == property_type
+            )
+
+        if listing_type:
+            statement = statement.where(
+               Property.listing_type == listing_type
+            )
+
+        if min_price is not None:
+            statement = statement.where(
+               Property.price >= min_price
+            )
+
+        if max_price is not None:
+            statement = statement.where(
+               Property.price <= max_price
+            )
+
+        if bedrooms is not None:
+            statement = statement.where(
+               Property.bedrooms == bedrooms
+            )
+
+        statement = (
+           statement
+           .order_by(distance)
+           .limit(limit)
+        )
+
+        return self.db.execute(statement).all()

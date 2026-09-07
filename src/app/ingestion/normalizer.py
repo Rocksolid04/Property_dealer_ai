@@ -25,8 +25,6 @@ def normalize_property(raw_property: dict) -> dict:
     if not location:
         raise ValueError("Property location is missing")
 
-    
-
     if price is None:
         price_min = raw_property.get("priceMinInr")
         price_max = raw_property.get("priceMaxInr")

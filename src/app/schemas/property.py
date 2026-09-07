@@ -45,3 +45,7 @@ class PropertySearchResponse(BaseModel):
     page: int
     limit: int
     total_pages: int
+
+class PropertySemanticSearchResponse(BaseModel):
+    property: PropertyResponse
+    similarity: float
