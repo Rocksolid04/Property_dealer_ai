@@ -271,6 +271,39 @@ def get_property(
 
     return property_obj
 
+@router.put(
+    "/{property_id}",
+    response_model=PropertyResponse,
+)
+def update_property(
+    property_id: int,
+    property_data: PropertyCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role("dealer", "admin")
+    ),
+):
+    service = PropertyService(db)
+
+    try:
+        property_obj = service.update_property(
+            property_id,
+            property_data,
+            current_user,
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        )
+
+    if property_obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found",
+        )
+
+    return property_obj
 
 @router.delete(
     "/{property_id}",
@@ -279,10 +312,22 @@ def get_property(
 def delete_property(
     property_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role("dealer", "admin")
+    ),
 ):
     service = PropertyService(db)
 
-    property_obj = service.delete_property(property_id)
+    try:
+        property_obj = service.delete_property(
+            property_id,
+            current_user,
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        )
 
     if property_obj is None:
         raise HTTPException(

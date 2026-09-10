@@ -1,9 +1,9 @@
+
 from app.database.connection import SessionLocal
 from app.ingestion.service import ingest_properties
 
 
 TARGETS = [
-    {"city": "Mumbai", "transaction_type": "buy", "target": 150},
     {"city": "Mumbai", "transaction_type": "rent", "target": 150},
     {"city": "Navi Mumbai", "transaction_type": "buy", "target": 150},
     {"city": "Navi Mumbai", "transaction_type": "rent", "target": 150},
@@ -30,7 +30,9 @@ def main():
             f"{'=' * 60}"
         )
 
-        batches = (target_count + BATCH_SIZE - 1) // BATCH_SIZE
+        batches = (
+            target_count + BATCH_SIZE - 1
+        ) // BATCH_SIZE
 
         target_inserted = 0
 
@@ -41,6 +43,7 @@ def main():
             print(
                 f"\n--- Batch {batch_number}/{batches} ---"
             )
+
             print(
                 f"Fetching up to {batch_size} "
                 f"{transaction_type} properties "
@@ -63,6 +66,7 @@ def main():
                 print(
                     f"Batch completed: {inserted} inserted"
                 )
+
                 print(
                     f"Progress for {city} {transaction_type}: "
                     f"{target_inserted}/{target_count}"
@@ -72,16 +76,25 @@ def main():
                 print(
                     f"ERROR in batch {batch_number}: {exc}"
                 )
+
                 print(
-                    "Moving to the next target..."
+                    "Stopping ingestion because the "
+                    "Apify source may be temporarily blocked."
                 )
+
+                db.rollback()
+                db.close()
+
+                return
 
             finally:
                 db.close()
 
         print(
-            f"\nCompleted target: {city} - {transaction_type}"
+            f"\nCompleted target: "
+            f"{city} - {transaction_type}"
         )
+
         print(
             f"Inserted for this target: "
             f"{target_inserted}/{target_count}"

@@ -41,6 +41,27 @@ class PropertyRepository:
         self.db.delete(property_obj)
         self.db.commit()
 
+    def update(
+        self,
+        property_obj: Property,
+        property_data: PropertyCreate,
+    ) -> Property:
+
+        property_obj.title = property_data.title
+        property_obj.description = property_data.description
+        property_obj.property_type = property_data.property_type
+        property_obj.listing_type = property_data.listing_type
+        property_obj.location = property_data.location
+        property_obj.price = property_data.price
+        property_obj.bedrooms = property_data.bedrooms
+        property_obj.bathrooms = property_data.bathrooms
+        property_obj.area_sqft = property_data.area_sqft
+
+        self.db.commit()
+        self.db.refresh(property_obj)
+
+        return property_obj
+
     def search(
         self,
         location: str | None = None,
@@ -146,9 +167,52 @@ class PropertyRepository:
 
         return self.db.execute(statement).all()
 
+    def keyword_search(
+        self,
+        query: str,
+        limit: int = 10,
+    ):
+        search_vector = (
+            func.to_tsvector(
+                "english",
+               func.coalesce(Property.title, "")
+               + " "
+               + func.coalesce(Property.description, "")
+               + " "
+               + func.coalesce(Property.location, ""),
+            )
+        )
+
+        search_query = func.plainto_tsquery(
+            "english",
+            query,
+        )
+
+        rank = func.ts_rank(
+            search_vector,
+            search_query,
+        )
+
+        statement = (
+            select(
+               Property,
+               rank.label("rank"),
+            )
+            .where(
+                search_vector.op("@@")(search_query)
+            )
+            .order_by(
+               rank.desc()
+            )
+            .limit(limit)
+        )
+
+        return self.db.execute(statement).all()
+
 
     def hybrid_search(
         self,
+        query: str,
         query_embedding: list[float],
         location: str | None = None,
         property_type: str | None = None,
@@ -159,83 +223,212 @@ class PropertyRepository:
         page: int = 1,
         limit: int = 10,
     ):
-    
-        distance = Property.embedding.cosine_distance(
-           query_embedding
-        )
+        # --------------------------------
+        # 1. RRF configuration
+        # --------------------------------
+        rrf_k = 60
+        retrieval_limit = 50
 
-        statement = (
-           select(
-               Property,
-               distance.label("distance"),
-            )
-           .where(Property.embedding.is_not(None))
-        )
+        # --------------------------------
+        # 2. Base filters
+        # --------------------------------
+        filters = []
 
         if location:
-           normalized_location = location.strip().lower()
+            normalized_location = location.strip().lower()
 
-           statement = statement.where(
-              or_(
-                  func.lower(Property.location) == normalized_location,
-                  func.lower(Property.location).like(
-                    f"%, {normalized_location}"
-            ),
-        )
-    )
+            filters.append(
+                or_(
+                    func.lower(Property.location)
+                    == normalized_location,
+                    func.lower(Property.location).like(
+                        f"%, {normalized_location}"
+                    ),
+                )
+            )
 
         if property_type:
-            statement = statement.where(
-               Property.property_type == property_type
+            filters.append(
+                Property.property_type == property_type
             )
 
         if listing_type:
-            statement = statement.where(
-               Property.listing_type == listing_type
+            filters.append(
+                Property.listing_type == listing_type
             )
 
         if min_price is not None:
-            statement = statement.where(
-               Property.price >= min_price
+            filters.append(
+                Property.price >= min_price
             )
 
         if max_price is not None:
-           statement = statement.where(
-               Property.price <= max_price
+            filters.append(
+                Property.price <= max_price
             )
 
         if bedrooms is not None:
-            statement = statement.where(
-               Property.bedrooms == bedrooms
+            filters.append(
+                Property.bedrooms == bedrooms
             )
 
-    # Count total matching properties
-        count_statement = select(
-            func.count()
-        ).select_from(statement.subquery())
+        # --------------------------------
+        # 3. Vector ranking
+        # --------------------------------
+        distance = Property.embedding.cosine_distance(
+            query_embedding
+        )
+
+        vector_statement = (
+            select(Property)
+            .where(
+                Property.embedding.is_not(None),
+                *filters,
+            )
+            .order_by(distance)
+            .limit(retrieval_limit)
+        )
+
+        vector_results = self.db.scalars(
+            vector_statement
+        ).all()
+
+        #  --------------------------------
+        # 4. Keyword ranking
+        # --------------------------------
+        search_vector = (
+            func.to_tsvector(
+                "english",
+                func.coalesce(Property.title, "")
+                + " "
+                + func.coalesce(Property.description, "")
+                + " "
+                + func.coalesce(Property.location, ""),
+            )
+        )
+
+        search_query = func.plainto_tsquery(
+            "english",
+            query,
+        )
+
+        keyword_rank = func.ts_rank(
+            search_vector,
+            search_query,
+        )
+
+        keyword_statement = (
+            select(Property)
+            .where(
+                search_vector.op("@@")(search_query),
+                *filters,
+            )
+            .order_by(keyword_rank.desc())
+            .limit(retrieval_limit)
+        )
+
+        keyword_results = self.db.scalars(
+            keyword_statement
+        ).all()
+
+        # --------------------------------
+        # 5. Build RRF scores
+        # --------------------------------
+        rrf_scores = {}
+
+        vector_ranks = {}
+
+        for rank, property_obj in enumerate(
+            vector_results,
+            start=1,
+        ):
+            vector_ranks[property_obj.id] = rank
+
+            rrf_scores[property_obj.id] = (
+                rrf_scores.get(property_obj.id, 0)
+                + 1 / (rrf_k + rank)
+            )
+
+        keyword_ranks = {}
+
+        for rank, property_obj in enumerate(
+            keyword_results,
+            start=1,
+        ):
+            keyword_ranks[property_obj.id] = rank
+
+            rrf_scores[property_obj.id] = (
+                rrf_scores.get(property_obj.id, 0)
+                + 1 / (rrf_k + rank)
+            )
+
+        # --------------------------------
+        #    6. Create property lookup
+        # --------------------------------
+        properties = {
+            property_obj.id: property_obj
+            for property_obj in (
+                vector_results + keyword_results
+            )
+        }
+
+        # --------------------------------
+        # 7. Sort by RRF score
+        # --------------------------------
+        ranked_results = sorted(
+            rrf_scores.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+
+        # --------------------------------
+        # 8. Pagination
+        # --------------------------------
+        # --------------------------------
+# 8. Pagination
+# --------------------------------
+        count_statement = (
+           select(func.count())
+            .select_from(Property)
+            .where(
+            Property.embedding.is_not(None),
+            *filters,
+            )
+        )
 
         total = self.db.scalar(count_statement) or 0
 
-    # Apply vector similarity ordering
-        statement = statement.order_by(distance)
-
-    # Apply pagination
         offset = (page - 1) * limit
 
-        statement = (
-            statement
-            .offset(offset)
-            .limit(limit)
+        paginated_results = ranked_results[
+            offset: offset + limit
+        ]
+
+        items = []
+
+        for property_id, rrf_score in paginated_results:
+            property_obj = properties[property_id]
+
+            items.append(
+                (
+                    property_obj,
+                    vector_ranks.get(property_id),
+                    keyword_ranks.get(property_id),
+                    rrf_score,
+                )
+            )
+
+        total_pages = (
+            ceil(total / limit)
+            if limit
+            else 0
         )
 
-        results = self.db.execute(statement).all()
-
-        total_pages = ceil(total / limit) if limit else 0
-
         return {
-            "items": results,
+            "items": items,
             "total": total,
             "page": page,
             "limit": limit,
             "total_pages": total_pages,
         }
+        

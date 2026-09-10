@@ -21,11 +21,11 @@ class PropertyService:
 
     def invalidate_property_search_cache(self):
         property_search_keys = redis_client.keys(
-           "property_search:*"
+            "property_search:*"
         )
 
         ai_search_keys = redis_client.keys(
-           "ai_search:*"
+            "ai_search:*"
         )
 
         keys = property_search_keys + ai_search_keys
@@ -63,6 +63,7 @@ class PropertyService:
     def delete_property(
         self,
         property_id: int,
+        current_user,
     ):
         property_obj = self.repository.get_by_id(
             property_id
@@ -70,6 +71,14 @@ class PropertyService:
 
         if property_obj is None:
             return None
+
+        if (
+            current_user.role != "admin"
+            and property_obj.owner_id != current_user.id
+        ):
+            raise PermissionError(
+                "You can only delete your own properties"
+            )
 
         self.repository.delete(property_obj)
 
@@ -101,7 +110,6 @@ class PropertyService:
 
         if cached_result:
             print("CACHE HIT")
-
             return json.loads(cached_result)
 
         print("CACHE MISS")
@@ -119,13 +127,8 @@ class PropertyService:
             order=order,
         )
 
-        response = PropertySearchResponse.model_validate(
-            result
-        )
-
-        result_data = response.model_dump(
-            mode="json"
-        )
+        response = PropertySearchResponse.model_validate(result)
+        result_data = response.model_dump(mode="json")
 
         redis_client.setex(
             cache_key,
@@ -155,7 +158,6 @@ class PropertyService:
             for property_obj, distance in results
         ]
 
-
     def hybrid_search(
         self,
         query: str,
@@ -168,9 +170,13 @@ class PropertyService:
         page: int = 1,
         limit: int = 10,
     ):
+        # Generate embedding for semantic search
         query_embedding = generate_embedding(query)
 
+        # Send both keyword query and embedding
+        # to the repository
         result = self.repository.hybrid_search(
+            query=query,
             query_embedding=query_embedding,
             location=location,
             property_type=property_type,
@@ -182,87 +188,125 @@ class PropertyService:
             limit=limit,
         )
 
+        # Repository returns:
+        #
+        # Property
+        # distance
+        # keyword_rank
+        # hybrid_score
+        #
+        # So we unpack all 4 values.
         items = [
-           {
-               "property": property_obj,
-               "similarity": 1 - distance,
-           }
-           for property_obj, distance in result["items"]
+            {
+                "property": property_obj,
+                "vector_rank": vector_rank,
+                "keyword_rank": keyword_rank,
+                "rrf_score": rrf_score,
+            }
+            for (
+                property_obj,
+                vector_rank,
+                keyword_rank,
+                rrf_score,
+            ) in result["items"]
         ]
 
         return {
-           "items": items,
-           "total": result["total"],
-           "page": result["page"],
-           "limit": result["limit"],
-           "total_pages": result["total_pages"],
+            "items": items,
+            "total": result["total"],
+            "page": result["page"],
+            "limit": result["limit"],
+            "total_pages": result["total_pages"],
         }
-
-
-
-
 
     def ai_search(
-       self,
-       query: str,
-       page: int = 1,
-       limit: int = 10,
+        self,
+        query: str,
+        page: int = 1,
+        limit: int = 10,
     ):
-       normalized_query = " ".join(
-           query.strip().lower().split()
+        normalized_query = " ".join(
+            query.strip().lower().split()
         )
 
-       cache_key = (
-           f"ai_search:{normalized_query}:"
-           f"{page}:{limit}"
+        cache_key = (
+            f"ai_search:{normalized_query}:"
+            f"{page}:{limit}"
         )
 
-       cached_result = redis_client.get(cache_key)
+        cached_result = redis_client.get(cache_key)
 
-       if cached_result:
-          print("AI SEARCH CACHE HIT")
-          return json.loads(cached_result)
+        if cached_result:
+            print("AI SEARCH CACHE HIT")
+            return json.loads(cached_result)
 
-       print("AI SEARCH CACHE MISS")
+        print("AI SEARCH CACHE MISS")
 
-       parsed_query = parse_property_query(query)
+        parsed_query = parse_property_query(query)
 
-       result = self.hybrid_search(
-           query=parsed_query.search_text or query,
-           location=parsed_query.location,
-           property_type=parsed_query.property_type,
-           listing_type=parsed_query.listing_type,
-           min_price=parsed_query.min_price,
-           max_price=parsed_query.max_price,
-           bedrooms=parsed_query.bedrooms,
-           page=page,
-           limit=limit,
+        result = self.hybrid_search(
+            query=parsed_query.search_text or query,
+            location=parsed_query.location,
+            property_type=parsed_query.property_type,
+            listing_type=parsed_query.listing_type,
+            min_price=parsed_query.min_price,
+            max_price=parsed_query.max_price,
+            bedrooms=parsed_query.bedrooms,
+            page=page,
+            limit=limit,
         )
 
-       items = [
-           {
-               "property": PropertyResponse.model_validate(
-                   item["property"]
-               ).model_dump(mode="json"),
-              "similarity": item["similarity"],
+        items = [
+            {
+                "property": PropertyResponse.model_validate(
+                    item["property"]
+                ).model_dump(mode="json"),
+                "rrf_score": item["rrf_score"],
             }
-           for item in result["items"]
+            for item in result["items"]
         ]
 
-       response = {
-          "items": items,
-          "total": result["total"],
-          "page": result["page"],
-          "limit": result["limit"],
-          "total_pages": result["total_pages"],
+        response = {
+            "items": items,
+            "filters": parsed_query.model_dump(),
+            "total": result["total"],
+            "page": result["page"],
+            "limit": result["limit"],
+            "total_pages": result["total_pages"],
         }
 
-       redis_client.setex(
-           cache_key,
-           300,
-           json.dumps(response),
+        redis_client.setex(
+            cache_key,
+            300,
+            json.dumps(response),
         )
 
-       return response
+        return response
 
+    def update_property(
+        self,
+        property_id: int,
+        property_data: PropertyCreate,
+        current_user,
+    ):
+        property_obj = self.repository.get_by_id(property_id)
 
+        if property_obj is None:
+            return None
+
+        if (
+            current_user.role != "admin"
+            and property_obj.owner_id != current_user.id
+        ):
+            raise PermissionError(
+                "You can only update your own properties"
+            )
+
+        updated_property = self.repository.update(
+            property_obj,
+            property_data,
+        )
+
+        self.invalidate_property_search_cache()
+
+        return updated_property

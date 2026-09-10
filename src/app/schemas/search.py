@@ -11,7 +11,7 @@ class PropertySearchQuery(BaseModel):
 
     bedrooms: int | None = None
 
-    search_text: str = Field(
-        default="",
+    search_text: str | None = Field(
+        default=None,
         description="Qualitative semantic requirements such as spacious, modern, near metro, family-friendly, etc."
     )
