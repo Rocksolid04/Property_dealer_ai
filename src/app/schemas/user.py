@@ -16,3 +16,11 @@ class UserResponse(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+    
+    
+class UserUpdate(BaseModel):
+    name: str
+    email: str
+    
+class UserStatusUpdate(BaseModel):
+    is_active: bool

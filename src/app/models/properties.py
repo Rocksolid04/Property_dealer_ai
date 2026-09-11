@@ -71,7 +71,7 @@ class Property(Base):
     nullable=True,
     )
 
-    owner_id: Mapped[int] = mapped_column(
+    owner_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id"),
         nullable=True,
         index=True,

@@ -13,6 +13,8 @@ from app.schemas.property import (
 from app.services.query_parser import parse_property_query
 from app.services.embedding import generate_embedding
 
+from app.models.properties import Property
+
 
 class PropertyService:
 
@@ -94,6 +96,7 @@ class PropertyService:
         min_price=None,
         max_price=None,
         bedrooms=None,
+        owner_id=None,
         page=1,
         limit=10,
         sort_by="created_at",
@@ -102,7 +105,7 @@ class PropertyService:
         cache_key = (
             f"property_search:{location}:"
             f"{property_type}:{listing_type}:"
-            f"{min_price}:{max_price}:{bedrooms}:"
+            f"{min_price}:{max_price}:{bedrooms}:{owner_id}"
             f"{page}:{limit}:{sort_by}:{order}"
         )
 
@@ -121,6 +124,7 @@ class PropertyService:
             min_price=min_price,
             max_price=max_price,
             bedrooms=bedrooms,
+            owner_id=owner_id,
             page=page,
             limit=limit,
             sort_by=sort_by,
@@ -310,3 +314,16 @@ class PropertyService:
         self.invalidate_property_search_cache()
 
         return updated_property
+    
+    def update_property_owner(
+        self,
+        property_obj: Property,
+        owner_id: int,
+    ) -> Property:
+        return self.repository.update_owner(
+            property_obj,
+            owner_id,
+        )
+        
+    def get_property_stats(self):
+        return self.repository.get_property_stats()

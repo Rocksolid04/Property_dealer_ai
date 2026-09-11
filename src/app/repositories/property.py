@@ -61,6 +61,18 @@ class PropertyRepository:
         self.db.refresh(property_obj)
 
         return property_obj
+    
+    def update_owner(
+        self,
+        property_obj: Property,
+        owner_id: int,
+    ) -> Property:
+        property_obj.owner_id = owner_id
+
+        self.db.commit()
+        self.db.refresh(property_obj)
+
+        return property_obj
 
     def search(
         self,
@@ -70,6 +82,7 @@ class PropertyRepository:
         min_price: float | None = None,
         max_price: float | None = None,
         bedrooms: int | None = None,
+        owner_id: int | None = None,
         page: int = 1,
         limit: int = 10,
         sort_by: str = "created_at",
@@ -106,6 +119,10 @@ class PropertyRepository:
         if bedrooms is not None:
             statement = statement.where(
                 Property.bedrooms == bedrooms
+            )
+        if owner_id is not None:
+            statement = statement.where(
+                Property.owner_id == owner_id
             )
 
         # Count total matching properties
@@ -384,9 +401,7 @@ class PropertyRepository:
         # --------------------------------
         # 8. Pagination
         # --------------------------------
-        # --------------------------------
-# 8. Pagination
-# --------------------------------
+        
         count_statement = (
            select(func.count())
             .select_from(Property)
@@ -430,5 +445,26 @@ class PropertyRepository:
             "page": page,
             "limit": limit,
             "total_pages": total_pages,
+        }
+        
+    def get_property_stats(self):
+        total = self.db.query(Property).count()
+
+        assigned = (
+            self.db.query(Property)
+            .filter(Property.owner_id.is_not(None))
+            .count()
+        )
+
+        unassigned = (
+            self.db.query(Property)
+            .filter(Property.owner_id.is_(None))
+            .count()
+        )
+
+        return {
+            "total": total,
+            "assigned": assigned,
+            "unassigned": unassigned,
         }
         

@@ -15,3 +15,7 @@ class PropertySearchQuery(BaseModel):
         default=None,
         description="Qualitative semantic requirements such as spacious, modern, near metro, family-friendly, etc."
     )
+    
+class RAGSearchRequest(BaseModel):
+    query: str
+    limit: int = 5

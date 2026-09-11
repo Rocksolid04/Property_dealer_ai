@@ -58,3 +58,10 @@ class PropertyAISearchResponse(BaseModel):
     limit: int
     total_pages: int
 
+class PropertyOwnerUpdate(BaseModel):
+    owner_id: int
+    
+class PropertyStatsResponse(BaseModel):
+    total: int
+    assigned: int
+    unassigned: int

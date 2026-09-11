@@ -11,10 +11,10 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 
-from app.core.security import require_role
+from app.core.security import require_role, get_current_user
 from app.database.dependencies import get_db
 from app.models.user import User
-from app.repositories.property_image import create_property_image
+from app.repositories.property_image import create_property_image 
 from app.schemas.property import (
     PropertyAISearchResponse,
     PropertyCreate,
@@ -22,9 +22,14 @@ from app.schemas.property import (
     PropertyResponse,
     PropertySearchResponse,
     PropertySemanticSearchResponse,
+    PropertyOwnerUpdate,
+    PropertyStatsResponse,
 )
 from app.services.property import PropertyService
 from app.services.storage import upload_property_image
+
+from app.schemas.search import RAGSearchRequest
+from app.services.rag_service import RAGService
 
 from app.services.property_image import (
     delete_image,
@@ -252,6 +257,97 @@ def get_property_images_endpoint(
     return images
 
 @router.get(
+    "/admin/all",
+    response_model=PropertySearchResponse,
+)
+def get_all_properties_admin(
+    owner_id: int | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role("admin")
+    ),
+):
+    service = PropertyService(db)
+
+    return service.search_properties(
+        owner_id=owner_id,
+    )
+
+@router.patch(
+    "/{property_id}/owner",
+    response_model=PropertyResponse,
+)
+def update_property_owner(
+    property_id: int,
+    owner_data: PropertyOwnerUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role("admin")
+    ),
+):
+    service = PropertyService(db)
+
+    property_obj = service.get_property(property_id)
+
+    if property_obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found",
+        )
+
+    owner = db.get(User, owner_data.owner_id)
+
+    if owner is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Owner user not found",
+        )
+
+    if owner.role not in ("dealer", "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Property owner must be a dealer or admin",
+        )
+
+    return service.update_property_owner(
+        property_obj,
+        owner_data.owner_id,
+    )
+    
+@router.get(
+    "/admin/stats",
+    response_model=PropertyStatsResponse,
+)
+def get_property_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role("admin")
+    ),
+):
+    service = PropertyService(db)
+
+    return service.get_property_stats()
+
+
+@router.post("/rag-search")
+def rag_search(
+    request: RAGSearchRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = RAGService(db)
+
+    answer = service.ask(
+        query=request.query,
+        limit=request.limit,
+    )
+
+    return {
+        "query": request.query,
+        "answer": answer,
+    }
+
+@router.get(
     "/{property_id}",
     response_model=PropertyResponse,
 )
@@ -349,6 +445,25 @@ def delete_property_image_endpoint(
         require_role("dealer", "admin")
     ),
 ):
+    service = PropertyService(db)
+
+    property_obj = service.get_property(property_id)
+
+    if property_obj is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Property not found",
+        )
+
+    if (
+        current_user.role != "admin"
+        and property_obj.owner_id != current_user.id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete images from your own properties",
+        )
+
     success = delete_image(
         db=db,
         property_id=property_id,
@@ -362,4 +477,7 @@ def delete_property_image_endpoint(
         )
 
     return None
+
+
+
 

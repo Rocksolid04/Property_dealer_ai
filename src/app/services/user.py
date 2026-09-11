@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
+
+from app.models.user import User
 from app.repositories.user import UserRepository
-from app.schemas.user import UserCreate
+from app.schemas.user import UserCreate, UserUpdate, UserStatusUpdate
 
 
 class UserService:
@@ -29,3 +31,24 @@ class UserService:
 
     def get_users(self):
         return self.repository.get_all()
+    
+    def update_user(
+        self,
+        user: User,
+        user_data: UserUpdate,
+    ) -> User:
+        return self.repository.update(
+            user,
+            user_data.name,
+            user_data.email,
+        )
+        
+    def update_user_status(
+        self,
+        user: User,
+        user_data: UserStatusUpdate,
+    ) -> User:
+        return self.repository.update_status(
+            user,
+            user_data.is_active,
+        )

@@ -42,3 +42,29 @@ class UserRepository:
         statement = select(User)
 
         return list(self.db.scalars(statement).all())
+    
+    def update(
+        self,
+        user: User,
+        name: str,
+        email: str,
+    ) -> User:
+        user.name = name
+        user.email = email
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user
+    
+    def update_status(
+        self,
+        user: User,
+        is_active: bool,
+    ) -> User:
+        user.is_active = is_active
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user

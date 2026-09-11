@@ -17,6 +17,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1] / "src"))
 from app.database.base import Base
 from app.models.properties import Property
 from app.models.favorite import Favorite
+from app.models.inquiry import Inquiry
 
 from app.core.config import settings
 

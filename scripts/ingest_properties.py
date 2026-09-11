@@ -4,11 +4,11 @@ from app.ingestion.service import ingest_properties
 
 
 TARGETS = [
-    {"city": "Mumbai", "transaction_type": "rent", "target": 150},
-    {"city": "Navi Mumbai", "transaction_type": "buy", "target": 150},
-    {"city": "Navi Mumbai", "transaction_type": "rent", "target": 150},
-    {"city": "Thane", "transaction_type": "buy", "target": 150},
-    {"city": "Thane", "transaction_type": "rent", "target": 150},
+    {"city": "Mumbai", "transaction_type": "rent", "target": 1},
+    {"city": "Navi Mumbai", "transaction_type": "buy", "target": 1},
+    {"city": "Navi Mumbai", "transaction_type": "rent", "target": 1},
+    {"city": "Thane", "transaction_type": "buy", "target": 1},
+    {"city": "Thane", "transaction_type": "rent", "target": 1},
 ]
 
 BATCH_SIZE = 50

@@ -1,4 +1,3 @@
-
 import requests
 
 from sqlalchemy import select
@@ -46,7 +45,12 @@ def get_file_extension(content_type: str) -> str:
         image/webp -> webp
     """
 
-    extension = content_type.split("/")[-1].split(";")[0].lower()
+    extension = (
+        content_type
+        .split("/")[-1]
+        .split(";")[0]
+        .lower()
+    )
 
     if extension == "jpeg":
         return "jpg"
@@ -59,17 +63,17 @@ def ingest_properties(
     city: str = "Mumbai",
     transaction_type: str = "buy",
     max_results: int = 10,
+    owner_id: int | None = None,
 ) -> int:
     """
     Fetch properties from Apify, normalize them,
-    skip invalid/duplicate properties, download their images,
-    upload images to Supabase Storage, and save image metadata
-    in PostgreSQL.
-    """
+    create new properties or update existing properties,
+    download their images, upload images to Supabase Storage,
+    and save image metadata in PostgreSQL.
 
-    # ---------------------------------------------------------
-    # 1. Fetch raw properties from Apify
-    # ---------------------------------------------------------
+    Returns:
+        Number of newly inserted properties.
+    """
 
     raw_properties = fetch_properties(
         city=city,
@@ -78,47 +82,109 @@ def ingest_properties(
     )
 
     inserted_count = 0
-
-    # ---------------------------------------------------------
-    # 2. Process each property
-    # ---------------------------------------------------------
+    updated_count = 0
+    skipped_count = 0
 
     for raw_property in raw_properties:
 
-        # -----------------------------------------------------
-        # Normalize property data
-        # -----------------------------------------------------
+        # ---------------------------------------------------------
+        # 1. Normalize property
+        # ---------------------------------------------------------
 
         try:
-            normalized_property = normalize_property(raw_property)
-
-        except (ValueError, TypeError) as exc:
-            print(f"Skipping invalid property: {exc}")
-            continue
-
-        external_id = normalized_property["external_id"]
-
-        # -----------------------------------------------------
-        # Skip duplicate property
-        # -----------------------------------------------------
-
-        if external_id:
-            existing_property = db.scalar(
-                select(Property).where(
-                    Property.external_id == external_id
-                )
+            normalized_property = normalize_property(
+                raw_property
             )
 
-            if existing_property:
-                print(
-                    f"Skipping duplicate property: "
-                    f"{external_id}"
-                )
-                continue
+        except (ValueError, TypeError) as exc:
+            print(
+                f"Skipping invalid property: {exc}"
+            )
+            skipped_count += 1
+            continue
 
-        # -----------------------------------------------------
-        # Create property database record
-        # -----------------------------------------------------
+        external_id = normalized_property.get(
+            "external_id"
+        )
+
+        if not external_id:
+            print(
+                "Skipping property without external_id"
+            )
+            skipped_count += 1
+            continue
+
+        # ---------------------------------------------------------
+        # 2. Check whether property already exists
+        # ---------------------------------------------------------
+
+        existing_property = db.scalar(
+            select(Property).where(
+                Property.external_id == external_id
+            )
+        )
+
+        # ---------------------------------------------------------
+        # 3. Update existing property
+        # ---------------------------------------------------------
+
+        if existing_property:
+
+            existing_property.title = normalized_property[
+                "title"
+            ]
+
+            existing_property.description = normalized_property[
+                "description"
+            ]
+
+            existing_property.property_type = normalized_property[
+                "property_type"
+            ]
+
+            existing_property.listing_type = normalized_property[
+                "listing_type"
+            ]
+
+            existing_property.location = normalized_property[
+                "location"
+            ]
+
+            existing_property.price = normalized_property[
+                "price"
+            ]
+
+            existing_property.bedrooms = normalized_property[
+                "bedrooms"
+            ]
+
+            existing_property.bathrooms = normalized_property[
+                "bathrooms"
+            ]
+
+            existing_property.area_sqft = normalized_property[
+                "area_sqft"
+            ]
+
+            # Only assign an owner when one was explicitly provided.
+            # This prevents ingestion from accidentally changing
+            # an already assigned property back to NULL.
+            if owner_id is not None:
+                existing_property.owner_id = owner_id
+
+            updated_count += 1
+
+            print(
+                f"Updated property: "
+                f"{existing_property.id} - "
+                f"{existing_property.title}"
+            )
+
+            continue
+
+        # ---------------------------------------------------------
+        # 4. Create new property
+        # ---------------------------------------------------------
 
         property_record = Property(
             external_id=external_id,
@@ -131,13 +197,25 @@ def ingest_properties(
             bedrooms=normalized_property["bedrooms"],
             bathrooms=normalized_property["bathrooms"],
             area_sqft=normalized_property["area_sqft"],
-            owner_id=None,
+            owner_id=owner_id,
         )
 
-        db.add(property_record)
+        try:
+            db.add(property_record)
 
-        # Flush so PostgreSQL assigns the property ID
-        db.flush()
+            # Get PostgreSQL-generated ID.
+            db.flush()
+
+        except Exception as exc:
+            db.rollback()
+
+            print(
+                f"Skipping property "
+                f"{external_id}: {exc}"
+            )
+
+            skipped_count += 1
+            continue
 
         print(
             f"Inserted property: "
@@ -145,18 +223,21 @@ def ingest_properties(
             f"{property_record.title}"
         )
 
-        # -----------------------------------------------------
-        # 3. Get scraped image URLs
-        # -----------------------------------------------------
+        # ---------------------------------------------------------
+        # 5. Get scraped image URLs
+        # ---------------------------------------------------------
 
         images = raw_property.get(
             "propertyImages",
             [],
         )
 
-        # -----------------------------------------------------
-        # 4. Download and upload images
-        # -----------------------------------------------------
+        if not isinstance(images, list):
+            images = []
+
+        # ---------------------------------------------------------
+        # 6. Download and upload images
+        # ---------------------------------------------------------
 
         for display_order, image_url in enumerate(images):
 
@@ -164,38 +245,34 @@ def ingest_properties(
                 continue
 
             try:
-                # Download image from 99acres
-                image_content, content_type = download_image(
-                    image_url
+                image_content, content_type = (
+                    download_image(image_url)
                 )
 
-                # Determine correct file extension
                 extension = get_file_extension(
                     content_type
                 )
 
-                # Create deterministic storage path
                 file_path = (
                     f"properties/"
                     f"{property_record.id}/"
                     f"image_{display_order}.{extension}"
                 )
 
-                # Upload image to Supabase Storage
                 upload_result = upload_property_image(
                     file_content=image_content,
                     file_path=file_path,
                     content_type=content_type,
                 )
 
-                # -------------------------------------------------
-                # 5. Save image metadata in PostgreSQL
-                # -------------------------------------------------
-
                 property_image = PropertyImage(
                     property_id=property_record.id,
-                    image_url=upload_result["public_url"],
-                    storage_path=upload_result["storage_path"],
+                    image_url=upload_result[
+                        "public_url"
+                    ],
+                    storage_path=upload_result[
+                        "storage_path"
+                    ],
                     display_order=display_order,
                 )
 
@@ -206,7 +283,12 @@ def ingest_properties(
                     f"{display_order + 1}/{len(images)}"
                 )
 
-            except Exception as exc:
+            except (
+                requests.RequestException,
+                ValueError,
+                TypeError,
+                Exception,
+            ) as exc:
                 print(
                     f"  Skipping image "
                     f"{display_order} "
@@ -217,15 +299,31 @@ def ingest_properties(
 
         inserted_count += 1
 
-    # ---------------------------------------------------------
-    # 6. Commit everything to PostgreSQL
-    # ---------------------------------------------------------
+    # -------------------------------------------------------------
+    # 7. Commit database changes
+    # -------------------------------------------------------------
 
-    db.commit()
+    try:
+        db.commit()
+
+    except Exception as exc:
+        db.rollback()
+
+        print(
+            f"Ingestion database commit failed: {exc}"
+        )
+
+        raise
+
+    # -------------------------------------------------------------
+    # 8. Summary
+    # -------------------------------------------------------------
 
     print(
         f"Ingestion completed. "
-        f"Inserted {inserted_count} properties."
+        f"Inserted: {inserted_count}, "
+        f"Updated: {updated_count}, "
+        f"Skipped: {skipped_count}"
     )
 
     return inserted_count
