@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}
+Search · {{ app_name }}
+{% endblock %}
+
+
+{% block content %}
+
+<section class="page-header">
+
+    <div class="container">
+
+        <span class="eyebrow">
+            API SEARCH
+        </span>
+
+        <h1>
+            Search properties
+        </h1>
+
+        <p>
+            Use structured filters to search the property database.
+        </p>
+
+    </div>
+
+</section>
+
+
+<section class="section">
+
+    <div class="container">
+
+        <form
+            method="GET"
+            action="{{ url_for('search') }}"
+            class="search-form"
+        >
+
+            <div class="form-group full">
+                <label>Search by location</label>
+
+                <input
+                    type="text"
+                    name="location"
+                    value="{{ filters.location }}"
+                    placeholder="Mumbai, Thane, Pune..."
+                >
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Property Type</label>
+
+                <select name="property_type">
+
+                    <option value="">
+                        Any
+                    </option>
+
+                    <option
+                        value="Apartment"
+                        {% if filters.property_type == "Apartment" %}
+                            selected
+                        {% endif %}
+                    >
+                        Apartment
+                    </option>
+
+                    <option
+                        value="Villa"
+                        {% if filters.property_type == "Villa" %}
+                            selected
+                        {% endif %}
+                    >
+                        Villa
+                    </option>
+
+                    <option
+                        value="House"
+                        {% if filters.property_type == "House" %}
+                            selected
+                        {% endif %}
+                    >
+                        House
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Listing Type</label>
+
+                <select name="listing_type">
+
+                    <option value="">
+                        Any
+                    </option>
+
+                    <option
+                        value="sale"
+                        {% if filters.listing_type == "sale" %}
+                            selected
+                        {% endif %}
+                    >
+                        Sale
+                    </option>
+
+                    <option
+                        value="rent"
+                        {% if filters.listing_type == "rent" %}
+                            selected
+                        {% endif %}
+                    >
+                        Rent
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Minimum Price</label>
+
+                <input
+                    type="number"
+                    name="min_price"
+                    value="{{ filters.min_price }}"
+                    min="0"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Maximum Price</label>
+
+                <input
+                    type="number"
+                    name="max_price"
+                    value="{{ filters.max_price }}"
+                    min="0"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Bedrooms</label>
+
+                <input
+                    type="number"
+                    name="bedrooms"
+                    value="{{ filters.bedrooms }}"
+                    min="1"
+                >
+
+            </div>
+
+
+            <div class="form-actions">
+
+                <button
+                    type="submit"
+                    class="button primary"
+                >
+                    Search Properties
+                </button>
+
+                <a
+                    href="{{ url_for('search') }}"
+                    class="button secondary"
+                >
+                    Reset
+                </a>
+
+            </div>
+
+        </form>
+
+
+        {% if error %}
+
+            <div class="alert error">
+                {{ error }}
+            </div>
+
+        {% endif %}
+
+
+        {% if result %}
+
+            <div class="results-header">
+
+                <strong>
+                    {{ result.total }}
+                </strong>
+
+                matching properties
+
+            </div>
+
+
+            {% if result.items %}
+
+                <div class="property-grid">
+
+                    {% for property in result.items %}
+
+                        {% include "partials/property_card.html" %}
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+
+                    <h3>
+                        No matching properties
+                    </h3>
+
+                    <p>
+                        Try using different search criteria.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        {% endif %}
+
+    </div>
+
+</section>
+
+{% endblock %}

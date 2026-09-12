@@ -5,6 +5,9 @@ from app.api.v1.routes.user import router as user_router
 from app.api.v1.routes.auth import router as auth_router
 from app.api.v1.routes.favorite import router as favorites_router
 from app.api.v1.routes.inquiry import router as inquiry_router
+from app.api.v1.routes.telegram import router as telegram_router
+
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="Property Dealer AI",
@@ -36,4 +39,18 @@ app.include_router(
 app.include_router(
     inquiry_router,
     prefix="/api/v1",
+)
+
+app.include_router(
+    telegram_router,
+    prefix="/api/v1",
+)
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )

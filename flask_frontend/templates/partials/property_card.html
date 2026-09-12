@@ -1,0 +1,83 @@
+<article class="property-card">
+
+    {% if property.images %}
+        <a href="{{ url_for('property_detail', property_id=property.id) }}">
+            <img
+                src="{{ property.images[0].image_url }}"
+                alt="{{ property.title }}"
+                class="property-image"
+                loading="lazy"
+            >
+        </a>
+    {% else %}
+        <div class="property-image placeholder">
+            No image available
+        </div>
+    {% endif %}
+
+
+    <div class="property-card-body">
+
+        <div class="property-card-top">
+
+            <span class="badge">
+                {{ property.listing_type }}
+            </span>
+
+            <span class="property-type">
+                {{ property.property_type }}
+            </span>
+
+        </div>
+
+
+        <h3>
+            <a href="{{ url_for('property_detail', property_id=property.id) }}">
+                {{ property.title }}
+            </a>
+        </h3>
+
+
+        <p class="location">
+            📍 {{ property.location }}
+        </p>
+
+
+        <div class="property-price">
+            ₹{{ "{:,.0f}".format(property.price) }}
+        </div>
+
+
+        <div class="property-meta">
+
+            {% if property.bedrooms is not none %}
+                <span>
+                    🛏 {{ property.bedrooms }} Beds
+                </span>
+            {% endif %}
+
+            {% if property.bathrooms is not none %}
+                <span>
+                    🚿 {{ property.bathrooms }} Baths
+                </span>
+            {% endif %}
+
+            {% if property.area_sqft is not none %}
+                <span>
+                    📐 {{ "{:,.0f}".format(property.area_sqft) }} sqft
+                </span>
+            {% endif %}
+
+        </div>
+
+
+        <a
+            href="{{ url_for('property_detail', property_id=property.id) }}"
+            class="card-link"
+        >
+            View property →
+        </a>
+
+    </div>
+
+</article>

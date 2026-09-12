@@ -13,7 +13,9 @@ class Settings(BaseSettings):
     APIFY_API_TOKEN: str
 
     GROQ_API_KEY: str
-
+    
+    TELEGRAM_BOT_TOKEN: str
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

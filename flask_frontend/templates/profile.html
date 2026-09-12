@@ -1,0 +1,50 @@
+
+{% extends "base.html" %}
+
+{% block title %}Profile · {{ app_name }}{% endblock %}
+
+{% block content %}
+
+<section class="section">
+    <div class="container">
+
+        <span class="eyebrow">ACCOUNT</span>
+
+        <h1>My Profile</h1>
+
+        <div class="profile-card">
+
+            <div class="profile-row">
+                <strong>Name</strong>
+                <span>{{ user.name }}</span>
+            </div>
+
+            <div class="profile-row">
+                <strong>Email</strong>
+                <span>{{ user.email }}</span>
+            </div>
+
+            <div class="profile-row">
+                <strong>User ID</strong>
+                <span>{{ user.id }}</span>
+            </div>
+
+            <div class="profile-row">
+                <strong>Joined</strong>
+                <span>{{ user.created_at }}</span>
+            </div>
+
+        </div>
+
+        <a
+            href="{{ url_for('logout') }}"
+            class="button secondary"
+        >
+            Logout
+        </a>
+
+    </div>
+</section>
+
+{% endblock %}
+

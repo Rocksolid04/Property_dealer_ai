@@ -48,7 +48,7 @@ class PropertySearchResponse(BaseModel):
 
 class PropertySemanticSearchResponse(BaseModel):
     property: PropertyResponse
-    similarity: float
+    rrf_score: float
 
 
 class PropertyAISearchResponse(BaseModel):

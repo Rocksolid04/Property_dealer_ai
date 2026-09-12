@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}
+Home · {{ app_name }}
+{% endblock %}
+
+
+{% block content %}
+
+<section class="hero">
+    <div class="container">
+
+        <span class="eyebrow">
+            PROPERTY DEALER AI
+        </span>
+
+        <h1>
+            Find a property
+            <br>
+            that fits your needs.
+        </h1>
+
+        <p class="hero-text">
+            Search properties using normal filters
+            or describe what you're looking for
+            naturally with AI.
+        </p>
+
+
+        <form
+            action="{{ url_for('ai_search_page') }}"
+            method="GET"
+            class="hero-search"
+        >
+
+            <input
+                type="text"
+                name="query"
+                placeholder="Try: 2 BHK in Mumbai under 1 crore"
+                required
+            >
+
+            <button type="submit">
+                AI Search
+            </button>
+
+        </form>
+
+
+        <div class="hero-links">
+            <a
+                href="{{ url_for('properties') }}"
+                class="button secondary"
+            >
+                Browse Properties
+            </a>
+        </div>
+
+    </div>
+</section>
+
+
+<section class="section">
+
+    <div class="container">
+
+        <div class="section-heading">
+            <div>
+                <span class="eyebrow">
+                    LISTINGS
+                </span>
+
+                <h2>
+                    Featured properties
+                </h2>
+            </div>
+
+            <a href="{{ url_for('properties') }}">
+                View all →
+            </a>
+        </div>
+
+
+        {% if error %}
+
+            <div class="alert error">
+                {{ error }}
+            </div>
+
+        {% elif properties %}
+
+            <div class="property-grid">
+
+                {% for property in properties %}
+
+                    {% include "partials/property_card.html" %}
+
+                {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-state">
+                <h3>No properties available</h3>
+                <p>
+                    There are currently no properties
+                    available from the backend.
+                </p>
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</section>
+
+{% endblock %}

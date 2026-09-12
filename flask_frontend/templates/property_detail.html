@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if property %}
+    {{ property.title }} · {{ app_name }}
+{% else %}
+    Property · {{ app_name }}
+{% endif %}
+{% endblock %}
+
+
+{% block content %}
+
+<section class="section">
+
+    <div class="container">
+
+        <a
+            href="{{ url_for('properties') }}"
+            class="back-link"
+        >
+            ← Back to properties
+        </a>
+
+
+        {% if error %}
+
+            <div class="alert error">
+                {{ error }}
+            </div>
+
+        {% elif property %}
+
+            <div class="detail-grid">
+
+                <div>
+
+                    {% if images %}
+
+                        <div class="gallery-main">
+
+                            <img
+                                id="mainPropertyImage"
+                                src="{{ images[0].image_url }}"
+                                alt="{{ property.title }}"
+                            >
+
+                        </div>
+
+
+                        {% if images|length > 1 %}
+
+                            <div class="gallery-thumbs">
+
+                                {% for image in images %}
+
+                                    <button
+                                        type="button"
+                                        class="gallery-thumb"
+                                        onclick="changeMainImage('{{ image.image_url }}')"
+                                    >
+                                        <img
+                                            src="{{ image.image_url }}"
+                                            alt="{{ property.title }}"
+                                            loading="lazy"
+                                        >
+                                    </button>
+
+                                {% endfor %}
+
+                            </div>
+
+                        {% endif %}
+
+                    {% elif property.images %}
+
+                        <div class="gallery-main">
+
+                            <img
+                                src="{{ property.images[0].image_url }}"
+                                alt="{{ property.title }}"
+                            >
+
+                        </div>
+
+                    {% else %}
+
+                        <div class="gallery-main placeholder">
+                            No image available
+                        </div>
+
+                    {% endif %}
+
+                </div>
+
+
+                <div class="detail-info">
+
+                    <div class="property-card-top">
+
+                        <span class="badge">
+                            {{ property.listing_type }}
+                        </span>
+
+                        <span class="property-type">
+                            {{ property.property_type }}
+                        </span>
+
+                    </div>
+
+
+                    <h1>
+                        {{ property.title }}
+                    </h1>
+
+
+                    <p class="detail-location">
+                        📍 {{ property.location }}
+                    </p>
+
+
+                    <div class="detail-price">
+                        ₹{{ "{:,.0f}".format(property.price) }}
+                    </div>
+
+
+                    <div class="detail-meta">
+
+                        {% if property.bedrooms is not none %}
+                            <div>
+                                <strong>
+                                    {{ property.bedrooms }}
+                                </strong>
+                                <span>Bedrooms</span>
+                            </div>
+                        {% endif %}
+
+
+                        {% if property.bathrooms is not none %}
+                            <div>
+                                <strong>
+                                    {{ property.bathrooms }}
+                                </strong>
+                                <span>Bathrooms</span>
+                            </div>
+                        {% endif %}
+
+
+                        {% if property.area_sqft is not none %}
+                            <div>
+                                <strong>
+                                    {{ "{:,.0f}".format(property.area_sqft) }}
+                                </strong>
+                                <span>Sq Ft</span>
+                            </div>
+                        {% endif %}
+
+                    </div>
+
+
+                    <div class="detail-description">
+
+                        <h2>
+                            About this property
+                        </h2>
+
+                        <p>
+                            {{ property.description or
+                               "No description available." }}
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        {% else %}
+
+            <div class="empty-state">
+
+                <h3>
+                    Property not found
+                </h3>
+
+                <p>
+                    The requested property could not be found.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</section>
+
+{% endblock %}

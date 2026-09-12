@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}
+AI Search · {{ app_name }}
+{% endblock %}
+
+
+{% block content %}
+
+<section class="ai-hero">
+
+    <div class="container">
+
+        <span class="eyebrow">
+            AI POWERED PROPERTY SEARCH
+        </span>
+
+        <h1>
+            Tell us what you're looking for.
+        </h1>
+
+        <p>
+            Describe your requirements naturally.
+            The backend AI search will interpret your request
+            and find matching properties.
+        </p>
+
+
+        <form
+            method="GET"
+            action="{{ url_for('ai_search_page') }}"
+            class="ai-search-form"
+        >
+
+            <input
+                type="text"
+                name="query"
+                value="{{ query }}"
+                placeholder="Example: 2 BHK apartment in Mumbai under 1 crore"
+                required
+                maxlength="500"
+            >
+
+            <button
+                type="submit"
+                class="button primary"
+            >
+                Search with AI
+            </button>
+
+        </form>
+
+
+        <div class="examples">
+
+            <span>Try:</span>
+
+            <a href="?query=2 BHK apartment in Mumbai">
+                2 BHK apartment in Mumbai
+            </a>
+
+            <a href="?query=house in Mumbai under 1 crore">
+                House in Mumbai under 1 crore
+            </a>
+
+            <a href="?query=property for rent in Thane">
+                Property for rent in Thane
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="section">
+
+    <div class="container">
+
+        {% if error %}
+
+            <div class="alert error">
+                {{ error }}
+            </div>
+
+        {% endif %}
+
+
+        {% if result %}
+
+            <div class="ai-results-summary">
+
+                <div>
+
+                    <span class="eyebrow">
+                        RESULTS
+                    </span>
+
+                    <h2>
+                        {{ result.total }}
+                        matching properties
+                    </h2>
+
+                </div>
+
+
+                {% if result.filters %}
+
+                    <div class="detected-filters">
+
+                        {% if result.filters.location %}
+                            <span>
+                                📍 {{ result.filters.location }}
+                            </span>
+                        {% endif %}
+
+                        {% if result.filters.property_type %}
+                            <span>
+                                🏠 {{ result.filters.property_type }}
+                            </span>
+                        {% endif %}
+
+                        {% if result.filters.listing_type %}
+                            <span>
+                                {{ result.filters.listing_type }}
+                            </span>
+                        {% endif %}
+
+                        {% if result.filters.bedrooms %}
+                            <span>
+                                🛏 {{ result.filters.bedrooms }} BHK
+                            </span>
+                        {% endif %}
+
+                    </div>
+
+                {% endif %}
+
+            </div>
+
+
+            {% if result.items %}
+
+                <div class="property-grid">
+
+                    {% for item in result["items"] %}
+
+                        {% set property = item.property %}
+
+                        {% include "partials/property_card.html" %}
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+
+                    <h3>
+                        No matching properties
+                    </h3>
+
+                    <p>
+                        Try describing your requirements differently.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        {% elif not error %}
+
+            <div class="ai-empty">
+
+                <div class="ai-icon">
+                    AI
+                </div>
+
+                <h2>
+                    Search naturally
+                </h2>
+
+                <p>
+                    You don't need to know the exact filters.
+                    Just describe the property you want.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</section>
+
+{% endblock %}

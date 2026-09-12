@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+
+{% block title %}
+Properties · {{ app_name }}
+{% endblock %}
+
+
+{% block content %}
+
+<section class="page-header">
+
+    <div class="container">
+
+        <span class="eyebrow">
+            {{ search_mode or "PROPERTY LISTINGS" }}
+        </span>
+
+        <h1>
+            Find your next property
+        </h1>
+
+        <p>
+            Browse properties available through
+            the Property Dealer AI backend.
+        </p>
+
+    </div>
+
+</section>
+
+
+<section class="section">
+
+    <div class="container">
+
+        <form
+            method="GET"
+            action="{{ url_for('properties') }}"
+            class="filter-panel"
+        >
+
+            <div class="form-group">
+                <label>Location</label>
+                <input
+                    type="text"
+                    name="location"
+                    value="{{ filters.location or '' }}"
+                    placeholder="Mumbai"
+                >
+            </div>
+
+
+            <div class="form-group">
+                <label>Property Type</label>
+
+                <select name="property_type">
+
+                    <option value="">
+                        Any type
+                    </option>
+
+                    <option
+                        value="apartment"
+                        {% if filters.property_type == "apartment" %}
+                            selected
+                        {% endif %}
+                    >
+                        Apartment
+                    </option>
+
+                    <option
+                        value="villa"
+                        {% if filters.property_type == "villa" %}
+                            selected
+                        {% endif %}
+                    >
+                        Villa
+                    </option>
+
+                    <option
+                        value="house"
+                        {% if filters.property_type == "house" %}
+                            selected
+                        {% endif %}
+                    >
+                        House
+                    </option>
+
+                    <option
+                        value="plot"
+                        {% if filters.property_type == "plot" %}
+                            selected
+                        {% endif %}
+                    >
+                        Plot
+                    </option>
+
+                </select>
+            </div>
+
+
+            <div class="form-group">
+                <label>Listing</label>
+
+                <select name="listing_type">
+
+                    <option value="">
+                        Any
+                    </option>
+
+                    <option
+                        value="buy"
+                        {% if filters.listing_type == "buy" %}
+                            selected
+                        {% endif %}
+                    >
+                        Buy
+                    </option>
+
+                    <option
+                        value="rent"
+                        {% if filters.listing_type == "rent" %}
+                            selected
+                        {% endif %}
+                    >
+                        Rent
+                    </option>
+
+                </select>
+            </div>
+
+
+            <div class="form-group">
+                <label>Min Price</label>
+
+                <input
+                    type="number"
+                    name="min_price"
+                    value="{{ filters.min_price or '' }}"
+                    placeholder="Min"
+                    min="0"
+                >
+            </div>
+
+
+            <div class="form-group">
+                <label>Max Price</label>
+
+                <input
+                    type="number"
+                    name="max_price"
+                    value="{{ filters.max_price or '' }}"
+                    placeholder="Max"
+                    min="0"
+                >
+            </div>
+
+
+            <div class="form-group">
+                <label>Bedrooms</label>
+
+                <select name="bedrooms">
+
+                    <option value="">
+                        Any
+                    </option>
+
+                    {% for number in range(1, 6) %}
+
+                        <option
+                            value="{{ number }}"
+                            {% if filters.bedrooms == number|string %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ number }} BHK
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+            </div>
+
+
+            <div class="filter-actions">
+
+                <button
+                    type="submit"
+                    class="button primary"
+                >
+                    Search
+                </button>
+
+                <a
+                    href="{{ url_for('properties') }}"
+                    class="button secondary"
+                >
+                    Clear
+                </a>
+
+            </div>
+
+        </form>
+
+
+        {% if error %}
+
+            <div class="alert error">
+                {{ error }}
+            </div>
+
+        {% endif %}
+
+
+        {% if result %}
+
+            <div class="results-header">
+
+                <div>
+                    <strong>
+                        {{ result.total }}
+                    </strong>
+
+                    properties found
+                </div>
+
+                {% if result.page %}
+                    <span>
+                        Page {{ result.page }}
+                    </span>
+                {% endif %}
+
+            </div>
+
+
+            {% if result["items"] %}
+
+                <div class="property-grid">
+
+                    {% for property in result["items"] %}
+
+                        {% include "partials/property_card.html" %}
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="empty-state">
+
+                    <h3>
+                        No properties found
+                    </h3>
+
+                    <p>
+                        Try changing your filters or search criteria.
+                    </p>
+
+                </div>
+
+            {% endif %}
+
+        {% else %}
+
+            <div class="empty-state">
+
+                <h3>
+                    Search properties
+                </h3>
+
+                <p>
+                    Use the filters above to find properties.
+                </p>
+
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</section>
+
+{% endblock %}
