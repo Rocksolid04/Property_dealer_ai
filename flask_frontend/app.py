@@ -21,9 +21,11 @@ from api.client import (
     get_current_user,
 )
 
+import os
+
 app = Flask(__name__)
 
-app.secret_key = "QBAC1RBAC"
+app.secret_key = os.environ["FLASK_SECRET_KEY"]
 
 
 @app.context_processor
